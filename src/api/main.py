@@ -1,11 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
 import os
-import csv
-from io import StringIO
-from fastapi.responses import StreamingResponse
+import json
 
 from src.db.database import get_db, engine, Base
 from src.db import crud
@@ -15,6 +14,8 @@ from src.ml.ocr_engine import extract_tokens_and_boxes
 from src.ml.baselines import run_regex_baseline
 from src.rules.normalizers import normalize_date, normalize_currency
 from src.rules.verifier import verify_arithmetic_parity
+from src.exporters.csv_exporter import export_document_to_csv
+from src.exporters.json_exporter import export_document_to_json
 
 app = FastAPI(title="DocuParse AI API", version="1.0.0")
 
@@ -25,6 +26,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def find_bbox_for_text(text: str, tokens: list) -> str:
+    """Find union bounding box for tokens matching text span."""
+    if not text or not tokens:
+        return "[]"
+    clean_parts = [p.strip().lower() for p in text.split() if p.strip()]
+    matched_boxes = []
+    for part in clean_parts:
+        for t in tokens:
+            word = t.get("word", "").lower()
+            if part in word or word in part:
+                if "bbox" in t and len(t["bbox"]) == 4:
+                    matched_boxes.append(t["bbox"])
+                break
+    if not matched_boxes:
+        return "[]"
+    x0 = min(b[0] for b in matched_boxes)
+    y0 = min(b[1] for b in matched_boxes)
+    x1 = max(b[2] for b in matched_boxes)
+    y1 = max(b[3] for b in matched_boxes)
+    return f"[{x0},{y0},{x1},{y1}]"
 
 @app.post("/api/v1/documents/upload", response_model=schemas.DocumentResponse, status_code=201)
 async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -42,8 +64,7 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         tokens = extract_tokens_and_boxes(saved_info["file_path"])
         words = [t["word"] for t in tokens]
         
-        # Pipeline processing - currently using Baseline Regex for stability.
-        # LayoutLMv3 inference logic from src.ml.layoutlm_model can be injected here.
+        # Pipeline processing - Baseline Regex extraction with spatial bounding box matching
         predictions = run_regex_baseline(words)
         
         extracted_fields = []
@@ -56,12 +77,13 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
                     parsed = normalize_currency(raw_val)
                     norm_val = str(parsed) if parsed is not None else raw_val
                     
+                bbox = find_bbox_for_text(raw_val, tokens)
                 extracted_fields.append({
                     "field_type": field_type,
                     "raw_text": raw_val,
                     "normalized_value": norm_val,
                     "confidence": 0.85, 
-                    "bbox_json": "[]" 
+                    "bbox_json": bbox
                 })
                 
         # Verification
@@ -119,16 +141,15 @@ def export_document(document_id: str, format: str = "json", db: Session = Depend
         raise HTTPException(status_code=404, detail="Document not found")
         
     if format.lower() == "json":
-        return doc
+        json_data = export_document_to_json(doc)
+        return JSONResponse(content=json_data)
         
     if format.lower() == "csv":
-        output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Document ID", "Filename", "Field", "Raw Text", "Normalized Value", "Confidence"])
-        for ext in doc.extractions:
-            writer.writerow([doc.id, doc.original_filename, ext.field_type, ext.raw_text, ext.normalized_text, ext.confidence])
-        
-        output.seek(0)
-        return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=export_{document_id}.csv"})
+        csv_text = export_document_to_csv(doc, mode="itemized")
+        return Response(
+            content=csv_text,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=export_{document_id}.csv"}
+        )
 
     raise HTTPException(status_code=400, detail="Unsupported format. Use csv or json.")

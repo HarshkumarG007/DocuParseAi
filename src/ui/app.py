@@ -1,5 +1,4 @@
 import streamlit as st
-import requests
 import os
 import sys
 
@@ -9,8 +8,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.ui.styles import inject_custom_css
 from src.ui.components.canvas_overlay import render_bounding_boxes
 from src.ui.components.field_editor import render_field_editor
-
-API_URL = "http://localhost:8000/api/v1"
+from src.ui.components.metric_cards import render_metric_cards
+from src.ui.utils import upload_document, fetch_documents, API_BASE_URL
 
 st.set_page_config(page_title="DocuParse AI", page_icon="📄", layout="wide")
 inject_custom_css()
@@ -23,37 +22,36 @@ def main():
     
     with tab1:
         st.subheader("Ingest Documents")
-        uploaded_file = st.file_uploader("Drag and drop your invoice or receipt here", type=['png', 'jpg', 'jpeg', 'pdf'])
+        uploaded_file = st.file_uploader(
+            "Drag and drop your invoice or receipt here", 
+            type=['png', 'jpg', 'jpeg', 'pdf'],
+            help="Supported formats: PNG, JPG, JPEG, and PDF up to 10MB."
+        )
         
         if uploaded_file is not None:
-            if st.button("Process Document", use_container_width=True):
+            if st.button("Process Document", use_container_width=True, type="primary"):
                 with st.spinner("Extracting tokens, analyzing layout, and validating rules..."):
-                    files = {"file": (uploaded_file.name, uploaded_file, uploaded_file.type)}
                     try:
-                        res = requests.post(f"{API_URL}/documents/upload", files=files)
-                        if res.status_code == 201:
-                            st.session_state["current_doc"] = res.json()
-                            st.success("Document processed successfully! Switch to the Review Workspace tab.")
-                        else:
-                            st.error(f"Error: {res.text}")
+                        doc = upload_document(uploaded_file)
+                        st.session_state["current_doc"] = doc
+                        st.success("Document processed successfully! Switch to the Review Workspace tab to verify.")
                     except Exception as e:
-                        st.error(f"Failed to connect to backend: {e}. Is the FastAPI server running?")
+                        st.error(f"Processing failed: {e}")
                         
     with tab2:
         doc = st.session_state.get("current_doc")
         if not doc:
-            st.info("Upload and process a document first to see it here.")
+            st.info("Upload and process a document in the 'Upload & Process' tab to begin review.")
         else:
             st.subheader(f"Reviewing: {doc['original_filename']}")
             
             if doc.get('has_validation_error'):
-                st.warning("⚠️ This document has validation warnings (e.g. Math Discrepancy). Please review carefully.")
+                st.warning("⚠️ Arithmetic Warning: Subtotal + Tax does not match Total within tolerance ($0.05). Please verify fields below.")
                 
             col1, col2 = st.columns([1, 1])
             
             with col1:
-                st.markdown("#### Document View")
-                # Render bounding boxes
+                st.markdown("#### Document View & Bounding Boxes")
                 img = render_bounding_boxes(doc['file_path'], doc.get('extractions', []))
                 st.image(img, use_container_width=True)
                 
@@ -61,29 +59,30 @@ def main():
                 render_field_editor(doc['id'], doc.get('extractions', []))
                 
     with tab3:
-        st.subheader("System Analytics")
-        if st.button("Refresh Analytics"):
-            try:
-                res = requests.get(f"{API_URL}/documents?limit=100")
-                if res.status_code == 200:
-                    docs = res.json()
-                    
-                    # Metrics
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("Total Documents Processed", len(docs))
-                    errors = sum(1 for d in docs if d.get("has_validation_error"))
-                    m2.metric("Documents Requiring Review", errors)
-                    
-                    # Simple table
-                    if docs:
-                        st.markdown("### Recent Documents")
-                        for d in docs[:5]:
-                            with st.expander(f"{d['original_filename']} - {d['status']}"):
-                                st.write(f"Uploaded: {d['uploaded_at']}")
-                                st.markdown(f"[Download CSV Export]({API_URL}/documents/{d['id']}/export?format=csv)")
-                                st.markdown(f"[Download JSON Export]({API_URL}/documents/{d['id']}/export?format=json)")
-            except:
-                st.error("Backend not reachable. Cannot load analytics.")
+        st.subheader("System Analytics & Records")
+        
+        try:
+            docs = fetch_documents(limit=100)
+            if docs:
+                render_metric_cards(docs)
+                
+                st.markdown("### Processed Document Records")
+                for d in docs[:10]:
+                    conf = d.get('overall_confidence')
+                    conf_str = f" • Confidence: {conf * 100:.1f}%" if conf else ""
+                    with st.expander(f"📄 {d['original_filename']} — [{d['status']}]{conf_str}"):
+                        st.write(f"**Document ID:** `{d['id']}`")
+                        st.write(f"**Uploaded:** {d['uploaded_at']}")
+                        
+                        btn_c1, btn_c2 = st.columns([1, 1])
+                        with btn_c1:
+                            st.markdown(f"📥 [Download CSV Export]({API_BASE_URL}/documents/{d['id']}/export?format=csv)")
+                        with btn_c2:
+                            st.markdown(f"📋 [Download JSON Export]({API_BASE_URL}/documents/{d['id']}/export?format=json)")
+            else:
+                st.info("No documents have been ingested yet. Ingest your first document to see metrics!")
+        except Exception as e:
+            st.error(f"Could not load analytics: {e}. Ensure the FastAPI server is running on port 8000.")
 
 if __name__ == "__main__":
     main()

@@ -140,29 +140,28 @@ flowchart TD
    - Streamlit sends a `POST` request with `multipart/form-data` to FastAPI (`POST /api/v1/documents/upload`).
 
 2. **Validation & Storage:**
-   - FastAPI inspects the HTTP stream, verifies the MIME signature (magic bytes), and generates a unique document UUID (`doc_{uuid4}`).
-   - The file is persisted under `storage/uploads/{doc_id}.ext`. If the upload is a PDF, the first page is rendered to a 300 DPI PNG image.
+   - FastAPI streams the upload payload in 64 KB chunks up to a strict 10 MB ceiling (returning HTTP 413 if exceeded), verifies binary MIME signatures (`FF D8 FF` / `89 50 4E 47`), and generates an RFC 4122 document UUID (`doc_{uuid4}`).
+   - The file is persisted under `storage/uploads/{doc_id}.ext`. Single-page raster images are processed directly.
 
 3. **OCR Processing:**
    - The image is loaded via Pillow, resized to a maximum dimension of 1024px while preserving aspect ratio, and handed to Tesseract OCR.
-   - Tesseract extracts word tokens, confidence ratings, and pixel coordinates $[x_0, y_0, x_1, y_1]$.
+   - Tesseract extracts word tokens, token-level confidence ratings, and pixel coordinates $[x_0, y_0, x_1, y_1]$.
    - Coordinates are normalized to the integer bounding box range $[0, 1000]$ relative to image width and height.
 
-4. **LayoutLMv3 Inference:**
-   - The image tensor, normalized bounding boxes, and word tokens are processed by `LayoutLMv3Processor`.
-   - The model generates logits for each token across entity labels (`B-VENDOR`, `I-VENDOR`, `B-DATE`, `I-DATE`, `B-TOTAL`, `I-TOTAL`, `B-TAX`, `I-TAX`, `B-ITEM`, `I-ITEM`, `O`).
-   - Softmax probabilities are calculated to produce token-level confidence scores.
+4. **Extraction Pipeline (Regex Baseline or LayoutLMv3):**
+   - The extraction gateway selects the active engine via `EXTRACTION_ENGINE=regex|layoutlmv3`.
+   - In baseline mode, spatial regex heuristics extract Vendor, Date, Subtotal, Tax, and Total with dynamic OCR token bounding box mapping and aggregated confidence scores.
+   - In ML mode, tokens and coordinates are processed by `DocumentParserModel` (`microsoft/layoutlmv3-base`).
 
 5. **Entity Aggregation & Validation:**
-   - Contiguous BIO tokens are aggregated into entity spans.
-   - Entity text and bounding boxes are evaluated by the deterministic validation engine:
-     - Dates are parsed into `YYYY-MM-DD`.
-     - Totals and taxes are converted into numeric floats.
-     - Line items are assembled into a structured JSON array.
-     - Arithmetic verification checks: $|\text{Total} - (\text{Subtotal} + \text{Tax})| \le 0.05$.
+   - Extracted entities are evaluated by the deterministic business rules engine:
+     - Dates are standardized into ISO 8601 (`YYYY-MM-DD`).
+     - Totals, subtotals, and taxes are normalized and evaluated using `decimal.Decimal` arithmetic to eliminate binary float errors.
+     - Decimal parity verification checks: $|\text{Total} - (\text{Subtotal} + \text{Tax})| \le 0.05$, categorizing documents into a 3-state machine (`PASS`, `FAIL`, `UNVERIFIABLE`).
 
-6. **Persistence & Presentation:**
-   - Document metadata and extracted fields are written to SQLite.
+6. **Persistence & Lifecycle State Machine:**
+   - Document status transitions to `PROCESSED` or `REVIEW_REQUIRED` (if arithmetic parity fails or overall confidence $< 0.70$).
+   - Document metadata and extracted fields are written to SQLite in Write-Ahead Logging (WAL) mode.
    - Structured JSON is returned to Streamlit.
    - Streamlit renders the image on the left with color-coded bounding boxes and editable fields with confidence badges on the right.
 

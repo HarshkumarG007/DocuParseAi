@@ -77,7 +77,7 @@ Before generating or modifying any application code, the AI must perform the fol
 - Follow **PEP 8** style guidelines strictly.
 - **Strict Typing:** All function signatures must include Python type hints for arguments and return values:
   ```python
-  def normalize_currency(raw_amount: str, default: float = 0.0) -> float:
+  def normalize_currency(raw_amount: str) -> Optional[Decimal]:
       ...
   ```
 - **Pydantic for Data Boundaries:** All HTTP payloads, database transfer objects, and ML output structures must inherit from `pydantic.BaseModel`.
@@ -105,6 +105,7 @@ Before generating or modifying any application code, the AI must perform the fol
   - `201 Created`: Document successfully ingested and assigned an ID.
   - `400 Bad Request`: Invalid payload, unsupported image format, or malformed bounding box.
   - `404 Not Found`: Requested document ID does not exist in SQLite.
+  - `413 Payload Too Large`: Upload payload exceeds strict 10MB memory safety ceiling.
   - `422 Unprocessable Entity`: Schema validation failure.
   - `500 Internal Server Error`: Masked internal server failure logged securely on the backend.
 - **Path Traversal Protection:** Sanitize all incoming filenames. Never use raw client-supplied filenames in `os.path.join()`.
@@ -182,7 +183,7 @@ Every operation involving I/O, ML inference, or external binaries must implement
 - **Unit Testing:**
   - Date normalization rules must be tested against at least 10 international date formats (`DD/MM/YYYY`, `MM/DD/YYYY`, `DD-Mon-YYYY`, etc.).
   - Currency normalization rules must be tested against varied currency symbols (`$`, `€`, `£`, commas, trailing decimals).
-  - Mathematical verification logic must be tested with exact matches, allowable rounding tolerance ($\pm \$0.02$), and deliberate discrepancies.
+  - Mathematical verification logic must be tested with exact matches, allowable rounding tolerance ($\pm \$0.05$), and deliberate discrepancies.
 - **API Testing:** Use FastAPI's `TestClient` to test all endpoints (`/upload`, `/{id}`, `/{id}/correct`, `/{id}/export`) with mock inputs and files.
 - **Mocking External Binaries:** In unit test environments where Tesseract or a GPU is not installed, mock the OCR engine and model forward pass using clean mock fixtures (`tests/conftest.py`).
 

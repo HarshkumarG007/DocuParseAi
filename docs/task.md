@@ -247,3 +247,36 @@
 - [Completed] **Task 12.3: Final Project Verification & Session Handoff**
   - Perform full end-to-end verification and update `docs/memory.md` with final project baseline state.
   - Acceptance Criteria: System validated, tested, and documented.
+
+---
+
+## Phase 13 — Architectural Audit Remediation & Grounding
+
+- [Completed] **Task 13.1: Strict Memory Ingestion Safety & HTTP 413**
+  - Implement 64 KB chunked streaming in `src/api/main.py` with 10MB ceiling and HTTP 413 rejection.
+  - Acceptance Criteria: Uploads exceeding 10MB terminate immediately; tested in `tests/test_api.py`.
+
+- [Completed] **Task 13.2: Deterministic Decimal Parity & 3-State Machine**
+  - Replace floating-point arithmetic with `decimal.Decimal` in `src/rules/verifier.py` with states `PASS`, `FAIL`, `UNVERIFIABLE`.
+  - Acceptance Criteria: Verifier handles decimal rounding to $\pm \$0.05$ with zero floating-point imprecision.
+
+- [Completed] **Task 13.3: OCR Realism & Safe Fallback Isolation**
+  - Replace silent synthetic fallback in `src/ml/ocr_engine.py` with explicit `RuntimeError` unless `DOCUPARSE_DEMO_MODE=true`.
+  - Acceptance Criteria: OCR failures fail explicitly instead of generating silent ACME CORP mock data.
+
+- [Completed] **Task 13.4: Dynamic OCR Confidence & Bounding Box Calculation**
+  - Derive token-level confidence dynamically in `src/api/main.py` using Tesseract token scores.
+  - Acceptance Criteria: Eliminates hardcoded 0.85 confidence; tests assert realistic score propagation.
+
+- [Completed] **Task 13.5: Pluggable Extraction Engine & Review Lifecycle**
+  - Implement `extract_fields_pipeline` supporting `EXTRACTION_ENGINE=regex|layoutlmv3`.
+  - Add document state transition to `REVIEW_REQUIRED` on math parity failure or low confidence.
+  - Acceptance Criteria: Toggling engine uses corresponding path; documents with math mismatch flagged as `REVIEW_REQUIRED`.
+
+- [Completed] **Task 13.6: Empirical Evaluation Harness & Benchmark Script**
+  - Implement `evaluation/metrics.py` (EM, Token F1, Precision, Recall) and `evaluation/evaluate.py`.
+  - Acceptance Criteria: CLI script executes reproducible evaluation and produces `evaluation/benchmark_report.json`.
+
+- [Completed] **Task 13.7: Comprehensive Test Suite Expansion**
+  - Expand automated tests across API, Evaluation, DB, Rules, ML, and Storage to 27 tests.
+  - Acceptance Criteria: 100% pass rate on `pytest` across all 27 tests.

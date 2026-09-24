@@ -11,21 +11,43 @@ def run_regex_baseline(text_blocks: List[str]) -> Dict[str, str]:
     results = {
         "vendor": "",
         "date": "",
+        "subtotal": "",
+        "tax": "",
         "total": ""
     }
     
-    # Very naive vendor assumption: first line of text
+    # Vendor extraction: First 2-3 tokens if they appear to be text
     if text_blocks:
-        results["vendor"] = text_blocks[0]
+        candidate_words = []
+        for word in text_blocks[:6]:
+            if word.lower() in {"date:", "date", "receipt", "invoice", "order", "tax", "total", "subtotal"}:
+                break
+            if not re.search(r'\d', word):
+                candidate_words.append(word)
+            if len(candidate_words) >= 3:
+                break
+        results["vendor"] = " ".join(candidate_words) if candidate_words else text_blocks[0]
         
-    # Date Regex: DD/MM/YYYY or YYYY-MM-DD
-    date_pattern = r'\b(\d{2}[/-]\d{2}[/-]\d{4}|\d{4}[/-]\d{2}[/-]\d{2})\b'
+    # Date Regex: DD/MM/YYYY, YYYY-MM-DD, or DD-MM-YYYY
+    date_pattern = r'\b(\d{4}[/-]\d{2}[/-]\d{2}|\d{2}[/-]\d{2}[/-]\d{4})\b'
     date_matches = re.findall(date_pattern, full_text)
     if date_matches:
         results["date"] = date_matches[0]
+
+    # Subtotal Regex
+    subtotal_pattern = r'(?i)sub[\s-]?total[\s:=]+[\$£€]?\s*(\d+[.,]\d{2})'
+    subtotal_matches = re.findall(subtotal_pattern, full_text)
+    if subtotal_matches:
+        results["subtotal"] = subtotal_matches[0]
+
+    # Tax Regex
+    tax_pattern = r'(?i)\b(?:tax|vat|gst)\b[\s:=]+[\$£€]?\s*(\d+[.,]\d{2})'
+    tax_matches = re.findall(tax_pattern, full_text)
+    if tax_matches:
+        results["tax"] = tax_matches[0]
         
     # Total Regex: find 'total' followed by a currency amount
-    total_pattern = r'(?i)total[\s:=]+[\$£€]?\s*(\d+[.,]\d{2})'
+    total_pattern = r'(?i)\b(?:grand\s+)?total\b[\s:=]+[\$£€]?\s*(\d+[.,]\d{2})'
     total_matches = re.findall(total_pattern, full_text)
     if total_matches:
         results["total"] = total_matches[-1] # Usually the last total is the grand total

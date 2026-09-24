@@ -16,6 +16,10 @@ from src.rules.normalizers import normalize_date, normalize_currency
 from src.rules.verifier import verify_arithmetic_parity
 from src.exporters.csv_exporter import export_document_to_csv
 from src.exporters.json_exporter import export_document_to_json
+from src.db import models
+
+# Ensure tables are created automatically on service initialization
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="DocuParse AI API", version="1.0.0")
 

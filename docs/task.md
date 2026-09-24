@@ -155,29 +155,29 @@
 
 ## Phase 8 — Streamlit Frontend & Visual Workspace
 
-- [Not Started] **Task 8.1: Design System & Styling Injection**
+- [Completed] **Task 8.1: Design System & Styling Injection**
   - Implement `src/ui/styles.py` defining CSS variables, dark theme aesthetics, custom buttons, and input styles according to `docs/design.md`.
   - Acceptance Criteria: Streamlit app renders customized dark mode styling without generic default appearance.
 
-- [Not Started] **Task 8.2: Drag-and-Drop Ingestion View**
+- [Completed] **Task 8.2: Drag-and-Drop Ingestion View**
   - Implement upload page in `src/ui/app.py` with custom file dropzone, upload progress spinner, and document format verification.
   - Acceptance Criteria: Dropping a file uploads to backend and transitions to review workspace.
 
-- [Not Started] **Task 8.3: Bounding Box Overlay Canvas**
+- [Completed] **Task 8.3: Bounding Box Overlay Canvas**
   - Implement `src/ui/components/canvas_overlay.py` using Pillow/OpenCV to render color-coded bounding boxes onto the document image.
   - Map entity colors: Sky Blue for Vendor, Emerald for Date, Amber for Total, Purple for Tax.
   - Acceptance Criteria: Document preview displays bounding box overlays aligned with detected entities.
 
-- [Not Started] **Task 8.4: Side-by-Side Review & Correction Form**
+- [Completed] **Task 8.4: Side-by-Side Review & Correction Form**
   - Implement `src/ui/components/field_editor.py` rendering two-column review workspace with editable input fields and confidence pill badges.
   - Add save button sending corrections to backend.
   - Acceptance Criteria: Editing total and clicking Save persists updated values to database.
 
-- [Not Started] **Task 8.5: Analytics Dashboard & Metric Cards**
+- [Completed] **Task 8.5: Analytics Dashboard & Metric Cards**
   - Implement summary cards showing total documents processed, average extraction confidence, and flagged math discrepancies.
   - Acceptance Criteria: Metrics update dynamically as new documents are ingested.
 
-- [Not Started] **Task 8.6: Export & Records View**
+- [Completed] **Task 8.6: Export & Records View**
   - Implement data table of all processed documents with download buttons for individual or bulk CSV/JSON exports.
   - Acceptance Criteria: Clicking export triggers immediate file download.
 

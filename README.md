@@ -100,51 +100,69 @@ Overall Platform Rating: 9.58 / 10 (Production Grade)
 
 ## 🏛 Overall System Architecture
 
-```text
-+═════════════════════════════════════════════════════════════════════════════════════════════+
-║                                   PRESENTATION TIER (UI)                                    ║
-║  Streamlit Dashboard (:8501)                                                                ║
-║  ├── Ingestion Drag-and-Drop Area        ├── Side-by-Side Verification Canvas               ║
-║  ├── Bounding Box Highlighting Engine    └── Human Correction & Export Toolbar              ║
-+══════════════════════════════════════════════╦══════════════════════════════════════════════+
-                                               ║ HTTP REST / Multipart Form Data
-                                               ▼
-+═════════════════════════════════════════════════════════════════════════════════════════════+
-║                                API GATEWAY & INGESTION TIER                                 ║
-║  FastAPI Service (:8000)                                                                    ║
-║  ├── CORS Middleware & Error Handlers    ├── Magic Byte Signature Sniffer                   ║
-║  └── Async Request Dispatcher            └── File System Staging (storage/uploads/)         ║
-+══════════════════════════════════════════════╦══════════════════════════════════════════════+
-                                               ║ Clean Raw Image Stream
-                                               ▼
-+═════════════════════════════════════════════════════════════════════════════════════════════+
-║                             INTELLIGENCE & EXTRACTION ENGINE                                ║
-║  ┌────────────────────────────────────────┐  ┌───────────────────────────────────────────┐  ║
-║  │ 1. Optical Character Recognition (OCR) │  │ 2. Multimodal Deep Learning Model         │  ║
-║  │    - Tesseract OCR Engine (C++)        │  │    - Microsoft LayoutLMv3 Base            │  ║
-║  │    - Word-Level Spatial Tokenizer      │  │    - 2D Positional Embeddings             │  ║
-║  │    - Bounding Box Normalizer [0, 1000] │  │    - Visual Patch Embeddings              │  ║
-║  └───────────────────┬────────────────────┘  └─────────────────────┬─────────────────────┘  ║
-║                      └──────────────────────┬──────────────────────┘                        ║
-║                                             ▼                                               ║
-║                      ┌─────────────────────────────────────────────┐                        ║
-║                      │ 3. Deterministic Guardrails & Verifier      │                        ║
-║                      │    - DateParser ISO 8601 Engine             │                        ║
-║                      │    - Currency Regex & OCR Char Repairer     │                        ║
-║                      │    - Arithmetic Parity: Total = Sub + Tax   │                        ║
-║                      └──────────────────────┬──────────────────────┘                        ║
-+═════════════════════════════════════════════╬══════════════════════════════════════════════+
-                                              ║ Structured Extractions + Validation Metadata
-                                              ▼
-+═════════════════════════════════════════════════════════════════════════════════════════════+
-║                               PERSISTENCE & EXPORT TIER                                     ║
-║  ┌────────────────────────────────────────┐  ┌───────────────────────────────────────────┐  ║
-║  │ SQLite 3 Database (WAL Mode)           │  │ Modular Exporter Framework                │  ║
-║  │ - PRAGMA journal_mode = WAL;           │  │ - BaseExporter (Abstract Factory)         │  ║
-║  │ - Non-blocking Concurrent Readers      │  │ - CSVExporter (Financial Formatted)       │  ║
-║  │ - SQLAlchemy 2.0 Async Session Pool    │  │ - JSONExporter (Hierarchical Schema)      │  ║
-║  └────────────────────────────────────────┘  └───────────────────────────────────────────┘  ║
-+═════════════════════════════════════════════════════════════════════════════════════════════+
+```mermaid
+flowchart TD
+    subgraph UI ["Presentation Tier (Streamlit :8501)"]
+        Upload["📥 Ingestion Drag-and-Drop Area"]
+        Canvas["🔍 Side-by-Side Review & BBox Canvas"]
+        CorrectionUI["✏️ Human-in-the-Loop Correction Toolbar"]
+        ExportUI["💾 Export Controller (CSV / JSON)"]
+    end
+
+    subgraph API ["API Gateway Tier (FastAPI :8000)"]
+        Router["🌐 REST Gateway Router (/api/v1)"]
+        Sanitizer["🛡️ Magic Byte Sniffer & File Sanitizer"]
+        Dispatcher["⚡ Async Request Offloader"]
+    end
+
+    subgraph Pipeline ["Intelligence & Extraction Engine"]
+        direction TB
+        subgraph OCRStage ["1. Spatial OCR"]
+            Tesseract["🔤 Tesseract OCR Engine (C++)"]
+            Normalizer["📐 Bounding Box Normalizer [0, 1000]"]
+        end
+        subgraph MLStage ["2. Multimodal Transformer"]
+            LayoutLM["🧠 Microsoft LayoutLMv3 Base"]
+            Attention["🔗 Cross-Modal 2D Spatial Attention"]
+            BIOTagger["🏷️ BIO Entity Classification Head"]
+        end
+        subgraph RuleStage ["3. Deterministic Guardrails"]
+            DateNorm["📅 ISO 8601 Date Normalizer"]
+            CurrClean["💲 Currency & OCR Character Cleanser"]
+            MathVerifier["⚖️ Arithmetic Parity Gate: Subtotal + Tax = Total"]
+        end
+    end
+
+    subgraph Storage ["Persistence & Storage Tier"]
+        Disk[("📁 Local Disk Storage (storage/uploads/)")]
+        SQLite[("🗄️ SQLite 3 Embedded DB (WAL Mode)")]
+        WAL["📝 Write-Ahead Log (Non-blocking Concurrency)"]
+    end
+
+    subgraph ExportEngine ["Modular Export Framework"]
+        Factory["🏭 BaseExporter Factory"]
+        CSVExp["📊 CSVExporter (Tabular Records)"]
+        JSONExp["📋 JSONExporter (Hierarchical Schema)"]
+    end
+
+    Upload -->|"1. Multipart Upload"| Router
+    Router --> Sanitizer
+    Sanitizer -->|"Save Raw Asset"| Disk
+    Sanitizer -->|"2. Forward Clean Stream"| Tesseract
+    Tesseract --> Normalizer
+    Normalizer --> LayoutLM
+    LayoutLM --> Attention --> BIOTagger
+    BIOTagger -->|"3. Raw Predicted Entities"| DateNorm
+    DateNorm --> CurrClean --> MathVerifier
+    MathVerifier -->|"4. Validated Extractions"| SQLite
+    SQLite --- WAL
+    SQLite -->|"5. Load Extractions"| Canvas
+    Canvas --> CorrectionUI
+    CorrectionUI -->|"6. Save Corrections"| Router
+    ExportUI -->|"7. Request Export"| Router
+    Router --> Factory
+    Factory --> CSVExp
+    Factory --> JSONExp
 ```
 
 ---
@@ -177,43 +195,26 @@ Designed a resilient ingestion gateway using FastAPI. Rather than relying on unt
 #### 6. 👶 Layman Explanation
 > *Imagine a high-security airport checkpoint. Before any package is opened or brought inside, a security scanner checks the material inside the box—not just the label on the outside. If someone puts a "Document" sticker on a brick, the scanner catches it and stops it at the door.*
 
-#### 7. 🏛️ Phase 1 ASCII System Architecture
+#### 7. 🏛️ Phase 1 System Architecture
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                               PHASE 1: SECURE INGESTION PIPELINE                                   |
-+----------------------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    Client["👤 Client / Operator"] -->|"HTTP POST /api/v1/documents/upload<br>(multipart/form-data)"| Gateway["FastAPI Gateway Router<br>(src/api/main.py)"]
 
- [ Client Upload ]
-        |
-        |  HTTP POST /api/v1/documents/upload
-        |  Content-Type: multipart/form-data
-        v
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| FastAPI Gateway Router (src/api/main.py)                                                           |
-|                                                                                                    |
-|  1. Read Header Stream (Limit: 20 MB)                                                              |
-|  2. Binary Magic-Byte Sniffing:                                                                    |
-|     - JPEG: FF D8 FF                                                                               |
-|     - PNG:  89 50 4E 47 0D 0A 1A 0A                                                                |
-|     - PDF:  25 50 44 46                                                                            |
-|                                                                                                    |
-|        [ Valid Signature? ]                                                                        |
-|             |          |                                                                           |
-|        No   |          | Yes                                                                       |
-|             v          v                                                                           |
-|   HTTP 415 Reject    Generate doc_id (UUID4)                                                       |
-|   "Unsupported Media"   |                                                                          |
-|                         +-----------------------+                                                  |
-|                                                 |                                                  |
-+═════════════════════════════════════════════════╬══════════════════════════════════════════════════+
-                                                  ║ Write Stream
-                                                  ▼
-                               +──────────────────────────────────────+
-                               | Local Staging Tier (storage/uploads/)|
-                               | File: {uuid4}.jpg                    |
-                               | Metadata: Original Name, Timestamp   |
-                               +──────────────────────────────────────+
+    subgraph Sanitation ["Payload Validation & Security Gate"]
+        Gateway --> ReadHeader["1. Read Initial 16 Bytes Stream"]
+        ReadHeader --> Sniffer{"2. Binary Magic-Byte Sniffer"}
+        
+        Sniffer -->|"Invalid Signature"| Reject["❌ HTTP 415 Unsupported Media Type<br>'Corrupted or Disallowed Payload'"]
+        Sniffer -->|"JPEG (FF D8 FF)<br>PNG (89 50 4E 47)<br>PDF (25 50 44 46)"| UUIDGen["3. Generate Collision-Proof UUIDv4<br>(doc_id)"]
+    end
+
+    subgraph DiskPersistence ["Local Staging Tier"]
+        UUIDGen --> StreamWrite["4. Async Disk Stream Writer"]
+        StreamWrite --> LocalFile[("📁 storage/uploads/{doc_id}.jpg<br>(Sanitized Asset & Timestamp)")]
+    end
+
+    LocalFile --> NextStage["➡️ Forward Stream to Phase 2 Pipeline"]
 ```
 
 ---
@@ -246,49 +247,36 @@ Integrated Microsoft's **LayoutLMv3**, a multimodal foundation model that simult
 #### 6. 👶 Layman Explanation
 > *Imagine reading a restaurant menu through a cardboard tube where you can only see one word at a time—you wouldn't know which price belongs to which dish. LayoutLMv3 takes the tube away and looks at the entire page at once, immediately seeing which price aligns under which section.*
 
-#### 7. 🏛️ Phase 2 ASCII System Architecture
+#### 7. 🏛️ Phase 2 System Architecture
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                         PHASE 2: MULTIMODAL EXTRACTION ENGINE                                      |
-+----------------------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    InputImage[("📁 Raw Image File<br>(storage/uploads/{doc_id}.jpg)")]
 
-  Raw Image File (storage/uploads/{doc_id}.jpg)
-        |
-        +-----------------------------------------------+
-        |                                               |
-        v                                               v
-+══════════════════════════════+        +══════════════════════════════════════════+
-| Tesseract OCR Engine (C++)   |        | Vision Processing (Pillow / OpenCV)      |
-|                              |        |                                          |
-| - Optical Word Recognition   |        | - RGB Normalization                      |
-| - Pixel Coordinates (X,Y,W,H)|        | - Resize to 224x224 Patch Matrix         |
-+══════════════════════════════+        +══════════════════════════════════════════+
-        |                                               |
-        v                                               |
-+══════════════════════════════+                        |
-| Bounding Box Normalizer      |                        |
-| Scale to [0, 1000] Grid      |                        |
-+══════════════════════════════+                        |
-        |                                               |
-        +-----------------------+                       |
-                                |                       |
-                                v                       v
-+══════════════════════════════════════════════════════════════════════════════════+
-| Microsoft LayoutLMv3 Multimodal Transformer (src/ml/token_matching.py)           |
-|                                                                                  |
-|   Modalities Ingested:                                                           |
-|   1. Text BPE Tokens:      ["ACME", "CAFE", "TOTAL", "51.98"]                    |
-|   2. 2D 1000-Scale BBoxes: [[10, 20, 150, 60], [10, 180, 130, 210]]             |
-|   3. Visual Pixel Patches: [16x16 Linear Image Projections]                      |
-|                                                                                  |
-|   Cross-Modal Multi-Head Self-Attention                                          |
-|                                                                                  |
-|   Predicted BIO Sequence Tags:                                                   |
-|   - "ACME CAFE"   --> B-VENDOR, I-VENDOR  (Confidence: 0.94)                     |
-|   - "2024-05-15"  --> B-DATE              (Confidence: 0.98)                     |
-|   - "51.98"       --> B-TOTAL             (Confidence: 0.96)                     |
-+══════════════════════════════════════════════════════════════════════════════════+
+    subgraph OCRTrack ["Track A: Spatial Optical Character Recognition"]
+        InputImage --> Tesseract["🔤 Tesseract OCR Engine (C++)<br>Extracts Text & Pixel BBoxes (X, Y, W, H)"]
+        Tesseract --> BBoxNorm["📐 Coordinate Normalizer<br>Scale Native Pixels to [0, 1000] Grid"]
+    end
+
+    subgraph VisionTrack ["Track B: Visual Image Processing"]
+        InputImage --> PIL["🖼️ Pillow / OpenCV Processing<br>RGB Conversion & Grayscale Normalization"]
+        PIL --> Patches["🧩 Visual Patch Embeddings<br>Linear Projection of 16x16 Patches"]
+    end
+
+    subgraph TransformerEngine ["Microsoft LayoutLMv3 Multimodal Transformer (src/ml/layoutlm_model.py)"]
+        BBoxNorm --> Embeddings["Multi-Modal Fusion Layer"]
+        Patches --> Embeddings
+        Embeddings --> Attention["Cross-Modal 2D Spatial Self-Attention<br>(Text Tokens + 2D BBoxes + Visual Features)"]
+        Attention --> BIOPredict["BIO Sequence Tag Classification Head"]
+    end
+
+    subgraph Predictions ["Extracted Entity Candidates"]
+        BIOPredict --> V["Vendor: 'ACME CAFE' (Conf: 0.94)"]
+        BIOPredict --> D["Date: '2024-05-15' (Conf: 0.98)"]
+        BIOPredict --> T["Total: '$51.98' (Conf: 0.96)"]
+    end
+
+    Predictions --> Output["➡️ Forward Candidates to Phase 3 Guardrails"]
 ```
 
 ---
@@ -321,40 +309,27 @@ Constructed a **Deterministic Guardrail Engine** (`src/api/rules.py`) that acts 
 #### 6. 👶 Layman Explanation
 > *If the AI model is a talented assistant who reads documents quickly, the Deterministic Rules are the senior accountant who checks the assistant's work with a physical pocket calculator. Even if the assistant is 95% sure, the accountant refuses to sign off until the numbers add up.*
 
-#### 7. 🏛️ Phase 3 ASCII System Architecture
+#### 7. 🏛️ Phase 3 System Architecture
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                      PHASE 3: DETERMINISTIC GUARDRAILS & VERIFICATION                              |
-+----------------------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    Candidates["📥 Raw Predictions from LayoutLMv3<br>Vendor: 'ACME CAFE & ROASTERY'<br>Date: 'May 15, 2024'<br>Amounts: Subtotal '$49.5O', Tax '$2.48', Total '$51.98'"]
 
-  Raw Extracted Predictions from LayoutLMv3
-  [ Vendor: "ACME CAFE & ROASTERY" ] [ Date: "May 15, 2024" ] [ Total: "$51.98" ]
-        |
-        v
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| Deterministic Rule Engine (src/api/rules.py)                                                       |
-|                                                                                                    |
-|  1. Date Normalizer (DateParser / Regex)                                                           |
-|     "May 15, 2024" -----------------------------------------------------> "2024-05-15" (ISO 8601)  |
-|                                                                                                    |
-|  2. OCR Character Repair & Currency Cleansing                                                      |
-|     "$51.98" -> Strip "$" -> Check OCR Leaks ('O'->'0') --------------> 51.98 (Float)            |
-|     Subtotal: "$49.5O" -> Repair 'O' -----------------------------------> 49.50 (Float)            |
-|     Tax: "$2.48" -----------------------------------------------------> 2.48 (Float)             |
-|                                                                                                    |
-|  3. Arithmetic Parity Verification Equation:                                                      |
-|     Check: | Total - (Subtotal + Tax) | <= 0.05                                                    |
-|            | 51.98 - (49.50 + 2.48) | = | 51.98 - 51.98 | = 0.00 <= 0.05                        |
-|                                                                                                    |
-|            [ Math Parity Confirmed ]                                                               |
-|                  /           \                                                                     |
-|            TRUE /             \ FALSE                                                              |
-|                v               v                                                                   |
-|       is_validated: true      is_validated: false                                                  |
-|       has_error: false        has_error: true                                                      |
-|       notes: "Verified"       notes: "Math mismatch: Subtotal + Tax != Total"                     |
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
+    subgraph DeterministicRules ["Deterministic Rule Engine (src/rules/normalizers.py & verifier.py)"]
+        Candidates --> DateParse["📅 Date Normalizer (DateParser / Regex)<br>'May 15, 2024' ➔ '2024-05-15' (ISO 8601)"]
+        Candidates --> CleanCurr["💲 Currency Cleanser & OCR Repair<br>Fix OCR Leaks: 'O'➔'0', 'l'➔'1'<br>Strip '$', ',' ➔ Convert to Float (49.50, 2.48, 51.98)"]
+        
+        DateParse --> MathGate{"⚖️ Arithmetic Parity Gate<br>| Total - (Subtotal + Tax) | <= 0.05<br>| 51.98 - (49.50 + 2.48) | = 0.00"}
+        CleanCurr --> MathGate
+    end
+
+    subgraph ParityResult ["Verification Audit Outcome"]
+        MathGate -->|"PASS (Delta <= 0.05)"| Validated["✅ is_validated = true<br>has_error = false<br>notes = 'Verified: Math matches'"]
+        MathGate -->|"FAIL (Delta > 0.05)"| Flagged["⚠️ is_validated = false<br>has_error = true<br>notes = 'Math mismatch: Subtotal + Tax != Total'"]
+    end
+
+    Validated --> Forward["➡️ Store Validated Record in SQLite WAL"]
+    Flagged --> ForwardReview["➡️ Flag Document for Human-in-the-Loop Review"]
 ```
 
 ---
@@ -390,52 +365,36 @@ Configured SQLite in **Write-Ahead Logging (WAL)** mode, allowing non-blocking c
 #### 6. 👶 Layman Explanation
 > *Standard SQLite is like a single-lane road where traffic must stop completely whenever a maintenance truck enters. Enabling WAL mode is like adding an express overpass: cars can drive through without stopping while maintenance happens smoothly on the side.*
 
-#### 7. 🏛️ Phase 4 ASCII System Architecture
+#### 7. 🏛️ Phase 4 System Architecture
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                         PHASE 4: STORAGE & HUMAN-IN-THE-LOOP UI                                    |
-+----------------------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph UI ["Human-in-the-Loop Presentation Layer (Streamlit :8501)"]
+        direction TB
+        subgraph Canvas ["Left Pane: Visual Canvas"]
+            ImgOverlay["🖼️ Image Overlay with Bounding Boxes<br>🟢 Green: High Confidence Entity<br>🟡 Amber: Field Under Review<br>🔴 Red: Arithmetic Discrepancy"]
+        end
+        subgraph Editor ["Right Pane: Interactive Form"]
+            Fields["Inline Edit Inputs:<br>• Vendor Name: ACME CAFE (94%)<br>• Date: 2024-05-15 (98%)<br>• Total: $51.98 (96%)"]
+            SaveBtn["💾 Save Operator Corrections"]
+        end
+    end
 
-   Operator Browser (:8501)
-         |
-         v
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| Streamlit Review Canvas (src/ui/app.py)                                                            |
-|                                                                                                    |
-|  [ Left Pane: Document Canvas ]                  [ Right Pane: Interactive Form ]                  |
-|  +---------------------------------------+       +---------------------------------------------+   |
-|  | [Receipt Image Overlay]               | ----> | Vendor Name: [ ACME CAFE          ] [94%]   |   |
-|  | - Green Box: Vendor [10, 20, 150, 60] |       | Date:        [ 2024-05-15         ] [98%]   |   |
-|  | - Red Box: Total   [10, 180, 130, 210]|       | Subtotal:    [ 49.50              ] [93%]   |   |
-|  +---------------------------------------+       | Total:       [ 51.98              ] [96%]   |   |
-|                                                  | Status:      [ VALIDATED OK       ]         |   |
-|                                                  +---------------------------------------------+   |
-|                                                                         |                          |
-|                                                      [ Save Human Corrections ]                    |
-+═════════════════════════════════════════════════════════════════════════╬══════════════════════════+
-                                                                          ║ HTTP POST /correct
-                                                                          ▼
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| FastAPI REST API Layer (src/api/main.py)                                                           |
-+═════════════════════════════════════════════════════════════════════════╦══════════════════════════+
-                                                                          ║ Async Session Pool
-                                                                          ▼
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| SQLite 3 Database Tier (PRAGMA journal_mode = WAL)                                                 |
-|                                                                                                    |
-|    Concurrent Readers (Streamlit UI, Export API)                                                   |
-|          |                 |                  |                                                    |
-|          v                 v                  v                                                    |
-|    [ Read Stream ]   [ Read Stream ]    [ Read Stream ]    (Zero Blocking / Instant Execution)       |
-|                                                                                                    |
-|    Dedicated Writer Thread (FastAPI Document Ingestion / Corrections)                             |
-|          |                                                                                         |
-|          v                                                                                         |
-|    [ Write-Ahead Log: docuparse.db-wal ] ───────> Checkpointed to Main DB (docuparse.db)          |
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
+    SaveBtn -->|"HTTP POST /api/v1/documents/{id}/correct"| API["FastAPI Backend Layer<br>(src/api/main.py)"]
+
+    subgraph StorageEngine ["SQLite 3 High-Concurrency Storage Tier (src/db/)"]
+        API --> SessionPool["SQLAlchemy Async Session Pool"]
+        
+        subgraph WALMechanism ["Write-Ahead Logging Architecture"]
+            SessionPool -->|"Writes (Append-Only)"| WALFile[("📝 docuparse.db-wal<br>(Fast Sequential Writes)")]
+            WALFile -->|"Checkpoint Thread"| MainDB[("🗄️ docuparse.db<br>(Main Database File)")]
+            
+            Reader1["Streamlit UI (Fetch List)"] -->|"Non-blocking Read"| MainDB
+            Reader2["Export API (Download)"] -->|"Non-blocking Read"| MainDB
+            Reader3["Canvas BBox Query"] -->|"Non-blocking Read"| MainDB
+        end
+    end
 ```
-
 ---
 
 ### 🔹 Phase 5: Modular Exporter Architecture & Production Validation
@@ -463,54 +422,31 @@ Designed a decoupled **Exporter Framework** (`src/exporters/`) implementing the 
 #### 6. 👶 Layman Explanation
 > *Think of the Exporter Engine as a universal power travel adapter. Whether you need to plug into a European socket (JSON) or an American wall outlet (CSV), the adapter takes the internal electricity (our database) and converts it to fit the external plug perfectly.*
 
-#### 7. 🏛️ Phase 5 ASCII System Architecture
+#### 7. 🏛️ Phase 5 System Architecture
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                         PHASE 5: MODULAR EXPORT ENGINE & TESTING                                   |
-+----------------------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    Client["👤 Client / Downstream ERP"] -->|"GET /api/v1/documents/{id}/export?format=csv|json"| Route["FastAPI Export Router<br>(src/api/main.py)"]
 
-  Client Request: GET /api/v1/documents/{doc_id}/export?format=csv
-        |
-        v
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| FastAPI Export Endpoint (src/api/main.py)                                                          |
-|                                                                                                    |
-|  1. Fetch Document & Extractions from SQLite                                                       |
-|  2. Dispatch to Exporter Factory:                                                                  |
-|                                                                                                    |
-|     switch(format):                                                                                |
-|        case "csv":  instantiate CSVExporter()                                                      |
-|        case "json": instantiate JSONExporter()                                                     |
-|        default:     HTTP 400 "Invalid Format"                                                      |
-+═════════════════════════════════════════════════════════════════════════╦══════════════════════════+
-                                                                          ║
-                     +────────────────────────────────────────────────────+
-                     |
-                     ▼
-+════════════════════════════════════════════════════════════════════════════════════════════════════+
-| Exporter Framework (src/exporters/)                                                                |
-|                                                                                                    |
-|      +-----------------------------------------+                                                   |
-|      |        <<Abstract Base Class>>          |                                                   |
-|      |             BaseExporter                |                                                   |
-|      |    + export(document_data) -> str       |                                                   |
-|      +--------------------+--------------------+                                                   |
-|                           |                                                                        |
-|              +------------+------------+                                                           |
-|              |                         |                                                           |
-|              v                         v                                                           |
-|  +───────────────────────+  +───────────────────────+                                              |
-|  |      CSVExporter      |  |     JSONExporter      |                                              |
-|  | - Tabular Flattening  |  | - Hierarchical Schema |                                              |
-|  | - Delimiter Escaping  |  | - Metadata Injection  |                                              |
-|  +───────────┬───────────+  +───────────┬───────────+                                              |
-+══════════════╪══════════════════════════╪══════════════════════════════════════════════════════════+
-               ║                          ║
-               v                          v
-   [ Download: receipt.csv ]   [ Download: receipt.json ]
+    subgraph DataFetch ["Persistence Layer"]
+        Route --> FetchDB["Fetch Document & Extractions<br>from SQLite WAL"]
+    end
+
+    subgraph FactoryPattern ["Modular Exporter Framework (src/exporters/)"]
+        FetchDB --> Factory["🏭 BaseExporter Factory Class<br>(src/exporters/base.py)"]
+        
+        Factory -->|"?format=csv"| CSV["📊 CSVExporter<br>(src/exporters/csv_exporter.py)<br>• Tabular Flattening<br>• Column Mapping<br>• CSV Escaping"]
+        Factory -->|"?format=json"| JSON["📋 JSONExporter<br>(src/exporters/json_exporter.py)<br>• Hierarchical Structure<br>• BBox & Confidence Metadata<br>• Audit Trail"]
+    end
+
+    subgraph Delivery ["HTTP Response Delivery"]
+        CSV --> StreamCSV["Downloadable CSV Attachment<br>Content-Type: text/csv<br>receipt_{id}.csv"]
+        JSON --> StreamJSON["Downloadable JSON Attachment<br>Content-Type: application/json<br>receipt_{id}.json"]
+    end
+
+    StreamCSV --> Client
+    StreamJSON --> Client
 ```
-
 ---
 
 ## 🌳 Git Tree & Codebase Architecture

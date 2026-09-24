@@ -45,8 +45,9 @@ def main():
         else:
             st.subheader(f"Reviewing: {doc['original_filename']}")
             
-            if doc.get('has_validation_error'):
-                st.warning("⚠️ Arithmetic Warning: Subtotal + Tax does not match Total within tolerance ($0.05). Please verify fields below.")
+            is_review_required = doc.get('has_validation_error') or doc.get('status') == "REVIEW_REQUIRED"
+            if is_review_required:
+                st.warning("⚠️ Review Required: Arithmetic parity discrepancy or low confidence detected. Please verify and correct fields below.")
                 
             col1, col2 = st.columns([1, 1])
             

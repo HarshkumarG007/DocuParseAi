@@ -5,8 +5,7 @@ def render_metric_cards(documents: List[Dict]):
     """
     Render high-impact analytics KPI metric cards matching design.md specifications.
     """
-    total_docs = len(documents)
-    flagged_docs = sum(1 for d in documents if d.get("has_validation_error"))
+    flagged_docs = sum(1 for d in documents if d.get("has_validation_error") or d.get("status") == "REVIEW_REQUIRED")
     
     confidences = [d.get("overall_confidence") for d in documents if d.get("overall_confidence") is not None]
     avg_conf = (sum(confidences) / len(confidences) * 100) if confidences else 0.0

@@ -42,8 +42,8 @@ def render_bounding_boxes(image_path: str, extractions: list) -> Image.Image:
             
             color = COLOR_MAP.get(field_type, "#FFFFFF")
             # Semi-transparent fill
-            fill_color = tuple(int(color.lstrip('#')[i:i+2], 16) + (60,))
-            outline_color = tuple(int(color.lstrip('#')[i:i+2], 16) + (255,))
+            fill_color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) + (60,)
+            outline_color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) + (255,)
             
             draw.rectangle([x0, y0, x1, y1], fill=fill_color, outline=outline_color, width=3)
             

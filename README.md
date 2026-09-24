@@ -28,8 +28,7 @@
 * **Memory-Protected Ingestion Gateway:** Built an asynchronous FastAPI endpoint implementing chunked upload streaming (64 KB chunks up to a strict 10 MB ceiling) with binary magic-byte inspection (JPEG, PNG) to prevent memory-exhaustion Denial-of-Service (DoS) attacks.
 * **Human-in-the-Loop Review Canvas:** Developed an interactive Streamlit workspace featuring side-by-side document inspection, dynamic bounding box overlays projected to native image dimensions, real-time OCR confidence badges, and inline correction auditing.
 * **High-Concurrency Embedded Storage:** Configured SQLite 3 in Write-Ahead Logging (WAL) mode (`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;`) to enable non-blocking concurrent reads during document review and export.
-* **Decoupled Exporter Framework:** Implemented the Object-Oriented Factory pattern (`BaseExporter`) with concrete implementations for RFC-compliant JSON and tabular CSV generation.
-* **Automated Test Coverage:** Authored a 21-test Pytest automation suite verifying API route responses, database transactions, storage security, and deterministic rule edge cases.
+* **Automated Test Coverage:** Authored a comprehensive 27-test Pytest automation suite verifying API route responses, 413 streaming payload guards, database transactions, evaluation metrics, storage security, and deterministic rule edge cases.
 
 ---
 
@@ -38,14 +37,16 @@
 | Technical Dimension | Current Implementation | Architectural Notes |
 | :--- | :--- | :--- |
 | **Primary Extraction Engine** | Spatial Heuristics + Regex (`src/ml/baselines.py`) | Production-ready baseline; extracts Vendor, Date, Subtotal, Tax, Total |
-| **Multimodal ML Module** | `DocumentParserModel` (`src/ml/layoutlm_model.py`) | Experimental LayoutLMv3 architecture; requires task fine-tuning for production inference |
+| **Multimodal ML Module** | `DocumentParserModel` (`src/ml/layoutlm_model.py`) | Experimental LayoutLMv3 architecture; toggled via `EXTRACTION_ENGINE=layoutlmv3` |
+| **Pipeline Selection** | Pluggable Engine Gateway (`src/api/main.py`) | Configurable via `EXTRACTION_ENGINE=regex` (default) or `EXTRACTION_ENGINE=layoutlmv3` |
+| **Lifecycle State Machine** | Strict Validation Workflow | Emits `PROCESSED` or `REVIEW_REQUIRED` (math parity mismatch or confidence < 0.70) |
 | **Arithmetic Verification** | Exact `Decimal` Math Parity (`src/rules/verifier.py`) | Enforces $|\text{Total} - (\text{Subtotal} + \text{Tax})| \le 0.05$; states: `PASS`, `FAIL`, `UNVERIFIABLE` |
 | **Confidence Scoring** | Token-Level Weighted Aggregation | Derived dynamically from Tesseract OCR word confidence scores (`conf`) |
 | **Ingestion Safeguards** | Chunked Streaming + Magic Bytes (`src/utils/storage.py`) | 64 KB chunk verification; 10 MB ceiling; validates `FF D8 FF` and `89 50 4E 47` |
 | **Storage Architecture** | SQLite 3 with Write-Ahead Logging (`src/db/`) | Non-blocking reads for UI and API; ACID-compliant transaction persistence |
 | **Export Formats** | CSV & Hierarchical JSON (`src/exporters/`) | Decoupled via `BaseExporter` OOP factory pattern |
 | **Supported Formats** | Raster Images (`.png`, `.jpg`, `.jpeg`) | Single-page receipts; multi-page PDF conversion via Poppler planned on roadmap |
-| **Automated Verification** | 21 Automated Tests (`tests/`) | 100% test pass rate covering API, DB, Exporters, ML, Rules, and Storage |
+| **Automated Verification** | 27 Automated Tests (`tests/`) | 100% test pass rate covering API, DB, Exporters, Evaluation, ML, Rules, and Storage |
 
 ---
 
@@ -642,25 +643,65 @@ All endpoints are versioned under `/api/v1`:
 
 ---
 
-## 🧪 Automated Testing & Verification Suite
+---
 
-The repository contains an automated test suite covering rules, database concurrency, API error states, exporter integrity, and model boundary conditions:
+## 📊 Benchmark & Evaluation Framework
+
+DocuParse AI includes an automated, reproducible evaluation harness (`evaluation/evaluate.py`) that benchmarks extraction engines against standardized receipt and invoice test sets. It computes field-level **Precision**, **Recall**, **Token F1**, and **Exact Match (EM)**:
 
 ```bash
 # Activate virtual environment
 .\venv\Scripts\Activate.ps1
 
-# Execute the test suite
+# Run benchmark evaluation across test samples
+python evaluation/evaluate.py
+```
+
+### Reproducible Benchmark Output (Spatial Baseline):
+```text
+===========================================================================
+  DocuParse AI – Benchmark Evaluation Report (Engine: REGEX)
+===========================================================================
+Field           | Precision  | Recall     | F1-Score   | Exact Match 
+---------------------------------------------------------------------------
+Vendor          |     40.0% |     40.0% |     40.0% |       40.0%
+Date            |    100.0% |     40.0% |     57.1% |       40.0%
+Subtotal        |     20.0% |     20.0% |     20.0% |       20.0%
+Tax             |     40.0% |     40.0% |     40.0% |       40.0%
+Total           |     60.0% |     60.0% |     60.0% |       60.0%
+---------------------------------------------------------------------------
+Overall Macro F1: 43.4% across 5 benchmark test samples
+===========================================================================
+Report saved to: evaluation/benchmark_report.json
+```
+
+> **Evaluation Methodology:**
+> * **Exact Match (EM):** Requires character-for-character equality after case and whitespace stripping.
+> * **Token F1:** Measures overlap at the whitespace/punctuation token level, accommodating minor OCR truncation.
+> * **Macro F1:** Unweighted mean of field-level F1 scores across Vendor, Date, Subtotal, Tax, and Total.
+
+---
+
+## 🧪 Automated Testing & Verification Suite
+
+The repository contains an automated test suite covering rules, database concurrency, API error states, exporter integrity, evaluation metrics, and model boundary conditions:
+
+```bash
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+
+# Execute the complete test suite
 pytest -v
 
 # Output:
-# tests\test_api.py ..                                                     [  9%]
-# tests\test_db.py ...                                                     [ 23%]
-# tests\test_exporters.py ...                                              [ 38%]
-# tests\test_model_inference.py ..                                         [ 47%]
-# tests\test_rules.py .....                                                [ 71%]
-# tests\test_storage.py ......                                             [100%]
-# ======================== 21 passed in 18.42s ========================
+# tests\test_api.py .....                                                   [ 18%]
+# tests\test_db.py ...                                                      [ 29%]
+# tests\test_evaluation.py ...                                              [ 40%]
+# tests\test_exporters.py ...                                               [ 51%]
+# tests\test_model_inference.py ..                                          [ 59%]
+# tests\test_rules.py .....                                                 [ 77%]
+# tests\test_storage.py ......                                              [100%]
+# ======================== 27 passed in 19.01s ========================
 ```
 
 ---

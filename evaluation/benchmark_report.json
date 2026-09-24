@@ -1,0 +1,40 @@
+{
+  "vendor": {
+    "precision": 0.4,
+    "recall": 0.4,
+    "f1": 0.4,
+    "exact_match": 0.4,
+    "support": 5
+  },
+  "date": {
+    "precision": 1.0,
+    "recall": 0.4,
+    "f1": 0.5714,
+    "exact_match": 0.4,
+    "support": 5
+  },
+  "subtotal": {
+    "precision": 0.2,
+    "recall": 0.2,
+    "f1": 0.2,
+    "exact_match": 0.2,
+    "support": 5
+  },
+  "tax": {
+    "precision": 0.4,
+    "recall": 0.4,
+    "f1": 0.4,
+    "exact_match": 0.4,
+    "support": 5
+  },
+  "total": {
+    "precision": 0.6,
+    "recall": 0.6,
+    "f1": 0.6,
+    "exact_match": 0.6,
+    "support": 5
+  },
+  "macro_f1": 0.4343,
+  "total_samples": 5,
+  "engine": "regex"
+}

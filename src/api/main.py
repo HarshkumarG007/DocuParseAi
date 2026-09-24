@@ -65,11 +65,76 @@ def find_bbox_and_confidence(text: str, tokens: list) -> tuple[str, float]:
     avg_conf = max(0.10, min(0.99, avg_conf))
     return bbox_str, avg_conf
 
+_layoutlm_instance = None
+
+def get_layoutlm_model():
+    global _layoutlm_instance
+    if _layoutlm_instance is None:
+        from src.ml.layoutlm_model import DocumentParserModel
+        _layoutlm_instance = DocumentParserModel()
+    return _layoutlm_instance
+
+def extract_fields_pipeline(file_path: str, tokens: list, words: list) -> list:
+    """Extract fields using either LayoutLMv3 or Regex spatial baseline."""
+    engine_choice = os.getenv("EXTRACTION_ENGINE", "regex").lower()
+    
+    if engine_choice == "layoutlmv3":
+        try:
+            from PIL import Image
+            model = get_layoutlm_model()
+            if model.is_loaded:
+                img = Image.open(file_path).convert("RGB")
+                raw_boxes = [t["bbox"] for t in tokens]
+                ml_results = model.predict(img, words, raw_boxes)
+                if ml_results:
+                    fields = []
+                    for item in ml_results:
+                        raw_val = item["raw_text"]
+                        field_type = item["field_type"]
+                        norm_val = raw_val
+                        if field_type == "date":
+                            norm_val = normalize_date(raw_val) or raw_val
+                        elif field_type in ["total", "tax", "subtotal"]:
+                            parsed = normalize_currency(raw_val)
+                            norm_val = str(parsed) if parsed is not None else raw_val
+                        fields.append({
+                            "field_type": field_type,
+                            "raw_text": raw_val,
+                            "normalized_value": norm_val,
+                            "confidence": round(float(item["confidence"]), 4),
+                            "bbox_json": item["bbox_json"]
+                        })
+                    return fields
+        except Exception as e:
+            print(f"LayoutLMv3 inference unavailable ({e}), using baseline.")
+            
+    # Default stable baseline
+    predictions = run_regex_baseline(words)
+    extracted_fields = []
+    for field_type, raw_val in predictions.items():
+        if raw_val:
+            norm_val = raw_val
+            if field_type == "date":
+                norm_val = normalize_date(raw_val) or raw_val
+            elif field_type in ["total", "tax", "subtotal"]:
+                parsed = normalize_currency(raw_val)
+                norm_val = str(parsed) if parsed is not None else raw_val
+                
+            bbox, field_conf = find_bbox_and_confidence(raw_val, tokens)
+            extracted_fields.append({
+                "field_type": field_type,
+                "raw_text": raw_val,
+                "normalized_value": norm_val,
+                "confidence": field_conf, 
+                "bbox_json": bbox
+            })
+    return extracted_fields
+
+CHUNK_SIZE = 64 * 1024  # 64 KB
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
 @app.post("/api/v1/documents/upload", response_model=schemas.DocumentResponse, status_code=201)
 async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    CHUNK_SIZE = 64 * 1024  # 64 KB
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-
     chunks = []
     total_bytes = 0
 
@@ -78,8 +143,9 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         if not chunk:
             break
         total_bytes += len(chunk)
-        if total_bytes > MAX_FILE_SIZE:
-            raise HTTPException(status_code=413, detail="File size exceeds 10MB limit.")
+        if total_bytes > MAX_FILE_SIZE_BYTES:
+            max_mb = MAX_FILE_SIZE_BYTES / (1024 * 1024)
+            raise HTTPException(status_code=413, detail=f"File size exceeds allowable limit ({max_mb:.1f}MB).")
         chunks.append(chunk)
 
     content = b"".join(chunks)
@@ -96,27 +162,8 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         tokens = extract_tokens_and_boxes(saved_info["file_path"])
         words = [t["word"] for t in tokens]
         
-        # Pipeline processing - Baseline Regex extraction with spatial bounding box matching
-        predictions = run_regex_baseline(words)
-        
-        extracted_fields = []
-        for field_type, raw_val in predictions.items():
-            if raw_val:
-                norm_val = raw_val
-                if field_type == "date":
-                    norm_val = normalize_date(raw_val) or raw_val
-                elif field_type in ["total", "tax", "subtotal"]:
-                    parsed = normalize_currency(raw_val)
-                    norm_val = str(parsed) if parsed is not None else raw_val
-                    
-                bbox, field_conf = find_bbox_and_confidence(raw_val, tokens)
-                extracted_fields.append({
-                    "field_type": field_type,
-                    "raw_text": raw_val,
-                    "normalized_value": norm_val,
-                    "confidence": field_conf, 
-                    "bbox_json": bbox
-                })
+        # Extraction Pipeline (Regex baseline or LayoutLMv3)
+        extracted_fields = extract_fields_pipeline(saved_info["file_path"], tokens, words)
                 
         # Verification
         verified_fields = verify_arithmetic_parity(extracted_fields)
@@ -139,7 +186,10 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
             
         overall_conf = round(sum(f["confidence"] for f in db_fields) / len(db_fields), 4) if db_fields else 0.50
         crud.insert_extractions(db, doc.id, db_fields)
-        crud.update_document_status(db, doc.id, "PROCESSED", confidence=overall_conf, has_error=has_error)
+        
+        # State machine: set REVIEW_REQUIRED if math error or low confidence
+        doc_status = "REVIEW_REQUIRED" if (has_error or overall_conf < 0.70) else "PROCESSED"
+        crud.update_document_status(db, doc.id, doc_status, confidence=overall_conf, has_error=has_error)
         
     except NotImplementedError as e:
         crud.update_document_status(db, doc.id, "UNSUPPORTED")

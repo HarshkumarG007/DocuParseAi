@@ -155,21 +155,26 @@ DocuParse AI is an end-to-end, local-first document intelligence system engineer
 - **2026-09-24:** Executed MVP implementation across database, ML baseline, rules engine, FastAPI, Streamlit UI, Dockerization, and automated test suite.
 - **2026-09-25:** Performed comprehensive documentation audit across all markdown files. Fixed RGBA bounding box generation bug in `canvas_overlay.py`, synchronized all task completion statuses in `task.md`, and enriched model card & README specifications.
 - **2026-09-25:** Modularized `src/exporters/` (`csv_exporter.py`, `json_exporter.py`), `src/ui/components/metric_cards.py`, and `src/ui/utils.py`. Implemented dynamic OCR token bounding box calculation for extracted fields. Added unit tests in `tests/test_exporters.py` bringing total passing tests to 21.
+- **2026-09-25:** External Static Audit Remediation (Sprint 1 & 2):
+  - Fixed P0 issues: eliminated silent fake OCR fallback, switched financial verification to `decimal.Decimal` with 3-state machine (`PASS`, `FAIL`, `UNVERIFIABLE`), and guarded file uploads with 64KB chunk streaming and 10MB limit (HTTP 413).
+  - Implemented dynamic token OCR confidence derivation in `src/api/main.py`.
+  - Built pluggable extraction pipeline (`EXTRACTION_ENGINE=regex|layoutlmv3`) and document state machine (`PROCESSED` vs `REVIEW_REQUIRED`).
+  - Created reproducible evaluation and benchmark framework (`evaluation/metrics.py`, `evaluation/evaluate.py`) calculating multi-field Exact Match, Token F1, Precision, and Recall.
+  - Expanded automated test suite to 27 unit & integration tests with 100% pass rate.
 
 ---
 
 ## Session Handoff
 
 ### Completed in this Session
-- Executed all 12 phases of the Vibe Coding Workflow.
-- Verified test suite: 21 passed automated tests covering API, database WAL mode, rules engine, exporters, storage security, and canvas overlays.
-- Built modular exporters (`csv_exporter.py`, `json_exporter.py`) with RFC 4180 itemized and summary modes.
-- Built reusable frontend components: `metric_cards.py` and `ui/utils.py`.
-- Enabled spatial OCR token bounding box mapping so document overlays draw colored boxes around extracted fields.
-- Pushed clean, synchronized code and documentation to GitHub `main`.
+- Remediated all critical external audit findings.
+- Verified test suite: 27 passed automated tests covering API 413 streaming, LayoutLMv3 pipeline execution, database WAL mode, rules engine, exporters, storage security, evaluation metrics, and canvas overlays.
+- Created reproducible evaluation harness (`evaluation/evaluate.py`) yielding empirical Macro F1 and field-level metrics.
+- Pushed clean, grounded code and documentation to GitHub `main`.
 
 ### Currently Being Worked On
-- **Verification & Live Demonstration:** Complete system running locally (`python scripts/run_dev.py`) and ready for user interactions.
+- Final review and verification of code, benchmark reports, and repo synchronization.
 
 ### What Should Happen Next
-- The user can test document uploads in the Visual Workspace at `http://localhost:8501`, review colored bounding boxes, verify arithmetic checks, and download CSV/JSON exports.
+- The user can run `python evaluation/evaluate.py` to benchmark models, test document uploads at `http://localhost:8501`, and review audit resolutions.
+

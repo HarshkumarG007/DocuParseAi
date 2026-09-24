@@ -289,7 +289,7 @@ sequenceDiagram
 ## 11. Open Questions & Assumptions
 
 ### Assumptions (Explicitly Labeled)
-1. **[Assumption-01] Local Environment Execution:** We assume the operator has Python 3.9–3.11 installed along with local Tesseract OCR binaries, or will run the application via our provided multi-stage Docker container.
+1. **[Assumption-01] Local Environment Execution:** We assume the operator has Python 3.10–3.13 installed along with local Tesseract OCR binaries, or will run the application via our provided multi-stage Docker container.
 2. **[Assumption-02] Single-Page Financial Focus:** We assume standard receipts and retail invoices are single-page documents. Multi-page document merging is deferred.
 3. **[Assumption-03] Language Focus:** We assume documents are predominantly printed in English or Latin script matching the SROIE and CORD training distributions. Non-Latin scripts (e.g., Cyrillic, Chinese, Arabic) will require separate OCR language packs.
 4. **[Assumption-04] GPU Availability for Training:** Fine-tuning requires an NVIDIA GPU with at least 8GB VRAM (or a cloud Google Colab/Kaggle notebook). Inference can run on either GPU or modern CPU.

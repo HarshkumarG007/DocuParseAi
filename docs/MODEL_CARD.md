@@ -6,7 +6,7 @@
 - **Parameters:** ~133 Million (12 layers, 768 hidden size, 12 attention heads)
 - **Modalities:** Multimodal (Token Text + 2D Normalized Bounding Box Coordinates + Document Visual Patches)
 - **Framework:** PyTorch ^2.2.0 & Hugging Face Transformers ^4.38.0
-- **License:** MIT / Apache 2.0 (underlying model checkpoint terms)
+- **License:** Apache 2.0 (underlying model checkpoint Apache 2.0 / Microsoft terms)
 
 ---
 
@@ -39,9 +39,9 @@ Tokens are classified according to standard BIO (Beginning, Inside, Outside) seq
 
 ## Evaluation Benchmark & Target Metrics
 
-Held-out evaluation benchmarks conducted against standard financial datasets (SROIE - Scanned Receipts OCR and Information Extraction; CORD - Consolidated Receipt Dataset):
+Held-out evaluation benchmark targets against standard financial datasets (SROIE - Scanned Receipts OCR and Information Extraction; CORD - Consolidated Receipt Dataset) as reported in literature for fine-tuned multimodal architectures vs baseline heuristics:
 
-| Field Target | Baseline 1 (OCR + Regex) F1 | Baseline 2 (OCR + CRF) F1 | LayoutLMv3 Fine-Tuned F1 | Precision | Recall |
+| Field Target | Baseline 1 (OCR + Regex) F1 | Baseline 2 (OCR + CRF) F1 | LayoutLMv3 Fine-Tuned (Target) F1 | Target Precision | Target Recall |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Vendor Name** | 0.38 | 0.62 | **0.86** | 0.88 | 0.84 |
 | **Document Date** | 0.64 | 0.74 | **0.91** | 0.93 | 0.89 |
@@ -49,6 +49,9 @@ Held-out evaluation benchmarks conducted against standard financial datasets (SR
 | **Tax Amount** | 0.34 | 0.58 | **0.82** | 0.85 | 0.79 |
 | **Subtotal** | 0.39 | 0.59 | **0.83** | 0.84 | 0.82 |
 | **Overall Macro F1** | **0.45** | **0.64** | **0.86** | **0.88** | **0.84** |
+
+> **Note on Out-of-the-Box Checkpoints:**
+> The repository's local evaluation harness (`python evaluation/evaluate.py`) benchmarks the active spatial baseline on sample test receipts, currently recording **43.4% Macro F1**. The `microsoft/layoutlmv3-base` model provided out-of-the-box has an un-fine-tuned 11-class classification head (`ignore_mismatched_sizes=True`); achieving the 0.86 F1 target above requires completing task fine-tuning on labeled token annotations (SROIE/CORD) using the recommended training hyperparameters below.
 
 ---
 

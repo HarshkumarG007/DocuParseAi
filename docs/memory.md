@@ -154,6 +154,7 @@ DocuParse AI is an end-to-end, local-first document intelligence system engineer
 - **2026-09-24:** Generated the complete initial 6-document architecture and specification suite in `docs/` (`PRD.md`, `architecture.md`, `rules.md`, `design.md`, `task.md`, `memory.md`).
 - **2026-09-24:** Executed MVP implementation across database, ML baseline, rules engine, FastAPI, Streamlit UI, Dockerization, and automated test suite.
 - **2026-09-25:** Performed comprehensive documentation audit across all markdown files. Fixed RGBA bounding box generation bug in `canvas_overlay.py`, synchronized all task completion statuses in `task.md`, and enriched model card & README specifications.
+- **2026-09-25:** Modularized `src/exporters/` (`csv_exporter.py`, `json_exporter.py`), `src/ui/components/metric_cards.py`, and `src/ui/utils.py`. Implemented dynamic OCR token bounding box calculation for extracted fields. Added unit tests in `tests/test_exporters.py` bringing total passing tests to 21.
 
 ---
 
@@ -161,12 +162,14 @@ DocuParse AI is an end-to-end, local-first document intelligence system engineer
 
 ### Completed in this Session
 - Executed all 12 phases of the Vibe Coding Workflow.
-- Verified test suite: 18 passed automated tests covering API, database WAL mode, rules engine, storage sanitization, and canvas overlays.
-- Resolved Windows Tesseract fallback and bounding box canvas RGBA parsing.
-- Aligned `task.md`, `memory.md`, `MODEL_CARD.md`, and `README.md`.
+- Verified test suite: 21 passed automated tests covering API, database WAL mode, rules engine, exporters, storage security, and canvas overlays.
+- Built modular exporters (`csv_exporter.py`, `json_exporter.py`) with RFC 4180 itemized and summary modes.
+- Built reusable frontend components: `metric_cards.py` and `ui/utils.py`.
+- Enabled spatial OCR token bounding box mapping so document overlays draw colored boxes around extracted fields.
+- Pushed clean, synchronized code and documentation to GitHub `main`.
 
 ### Currently Being Worked On
-- **Documentation Alignment & Polish:** Ensuring 100% fidelity between documentation and codebase.
+- **Verification & Live Demonstration:** Complete system running locally (`python scripts/run_dev.py`) and ready for user interactions.
 
 ### What Should Happen Next
-- User can run the complete system locally with `python scripts/run_dev.py` or containerized with `docker-compose up`.
+- The user can test document uploads in the Visual Workspace at `http://localhost:8501`, review colored bounding boxes, verify arithmetic checks, and download CSV/JSON exports.

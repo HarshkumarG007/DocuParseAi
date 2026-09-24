@@ -8,6 +8,7 @@
 [![SQLite](https://img.shields.io/badge/Database-SQLite%203%20(WAL)-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Docker](https://img.shields.io/badge/Container-Docker%20%26%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
+[![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0-success?style=for-the-badge)](CHANGELOG.md)
 
 ---
 
@@ -733,6 +734,7 @@ pytest -v
 * [Project Master Roadmap](docs/task.md)
 * [System Knowledge Base & Memory](docs/memory.md)
 * [Hugging Face Model Card (`microsoft/layoutlmv3-base`)](docs/MODEL_CARD.md)
+* [Release Notes & Changelog](CHANGELOG.md)
 
 ---
 

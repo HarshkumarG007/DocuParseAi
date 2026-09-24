@@ -35,7 +35,7 @@ def check_tesseract():
         else:
             print("[ERROR] Tesseract found but failed to run properly.")
     except FileNotFoundError:
-        print(f"[ERROR] Tesseract OCR not found in PATH.\n   Please install it (e.g. via Windows installer) and add it to your PATH, or set TESSERACT_CMD in .env.")
+        print(f"[ERROR] Tesseract OCR not found in PATH.\n   Please install it (e.g. via Windows installer) and add it to your PATH, set TESSERACT_CMD in .env,\n   or set DOCUPARSE_DEMO_MODE=true for testing without native binaries.")
     print()
 
 if __name__ == "__main__":

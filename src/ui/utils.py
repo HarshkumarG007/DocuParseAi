@@ -1,7 +1,8 @@
 import requests
+import os
 from typing import Optional, List, Dict, Any
 
-API_BASE_URL = "http://localhost:8000/api/v1"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
 
 def upload_document(uploaded_file) -> Dict[str, Any]:
     """Upload a document file to the backend API."""

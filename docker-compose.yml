@@ -8,21 +8,25 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./storage:/app/storage
     environment:
       - PYTHONPATH=/app
+      - ALLOWED_ORIGINS=http://localhost:8501,http://127.0.0.1:8501,http://frontend:8501
+      - EXTRACTION_ENGINE=regex
+      - DOCUPARSE_DEMO_MODE=false
     restart: unless-stopped
 
   frontend:
     build: .
     container_name: docuparse_ui
-    command: streamlit run src/ui/app.py --server.address 0.0.0.0
+    command: streamlit run src/ui/app.py --server.address 0.0.0.0 --server.port 8501
     ports:
       - "8501:8501"
     volumes:
-      - .:/app
+      - ./storage:/app/storage
     environment:
       - PYTHONPATH=/app
+      - API_BASE_URL=http://api:8000/api/v1
     depends_on:
       - api
     restart: unless-stopped

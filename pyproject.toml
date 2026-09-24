@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docuparse-ai"
+version = "1.0.0"
+description = "Local-first intelligent document understanding engine for financial records combining Tesseract OCR, spatial heuristics, LayoutLMv3, and deterministic arithmetic verification."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "HarshkumarG007"}
+]
+keywords = [
+    "document-ai",
+    "invoice-processing",
+    "receipt-parser",
+    "layoutlmv3",
+    "ocr",
+    "fastapi",
+    "streamlit",
+    "financial-documents"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial :: Accounting"
+]
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "streamlit>=1.32.0",
+    "torch>=2.2.0",
+    "transformers>=4.38.0",
+    "accelerate>=0.27.0",
+    "pytesseract>=0.3.10",
+    "pydantic>=2.6.0",
+    "Pillow>=10.2.0",
+    "opencv-python-headless>=4.9.0",
+    "dateparser>=1.2.0",
+    "pandas>=2.2.0",
+    "SQLAlchemy>=2.0.27",
+    "python-multipart>=0.0.9",
+    "requests>=2.31.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "ruff>=0.3.0",
+    "black>=24.2.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+filterwarnings = [
+    "ignore::starlette.testclient.StarletteDeprecationWarning"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

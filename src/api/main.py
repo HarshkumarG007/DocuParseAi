@@ -23,38 +23,66 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="DocuParse AI API", version="1.0.0")
 
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:8501,http://127.0.0.1:8501").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-def find_bbox_for_text(text: str, tokens: list) -> str:
-    """Find union bounding box for tokens matching text span."""
+def find_bbox_and_confidence(text: str, tokens: list) -> tuple[str, float]:
+    """Find union bounding box and average confidence for tokens matching text span."""
     if not text or not tokens:
-        return "[]"
+        return "[]", 0.75
     clean_parts = [p.strip().lower() for p in text.split() if p.strip()]
     matched_boxes = []
+    matched_confs = []
     for part in clean_parts:
         for t in tokens:
             word = t.get("word", "").lower()
             if part in word or word in part:
                 if "bbox" in t and len(t["bbox"]) == 4:
                     matched_boxes.append(t["bbox"])
+                if "confidence" in t and t["confidence"] is not None:
+                    matched_confs.append(float(t["confidence"]))
                 break
-    if not matched_boxes:
-        return "[]"
-    x0 = min(b[0] for b in matched_boxes)
-    y0 = min(b[1] for b in matched_boxes)
-    x1 = max(b[2] for b in matched_boxes)
-    y1 = max(b[3] for b in matched_boxes)
-    return f"[{x0},{y0},{x1},{y1}]"
+    bbox_str = "[]"
+    if matched_boxes:
+        x0 = min(b[0] for b in matched_boxes)
+        y0 = min(b[1] for b in matched_boxes)
+        x1 = max(b[2] for b in matched_boxes)
+        y1 = max(b[3] for b in matched_boxes)
+        bbox_str = f"[{x0},{y0},{x1},{y1}]"
+        
+    avg_conf = round(sum(matched_confs) / len(matched_confs), 4) if matched_confs else 0.80
+    avg_conf = max(0.10, min(0.99, avg_conf))
+    return bbox_str, avg_conf
 
 @app.post("/api/v1/documents/upload", response_model=schemas.DocumentResponse, status_code=201)
 async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    content = await file.read()
+    CHUNK_SIZE = 64 * 1024  # 64 KB
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+    chunks = []
+    total_bytes = 0
+
+    while True:
+        chunk = await file.read(CHUNK_SIZE)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File size exceeds 10MB limit.")
+        chunks.append(chunk)
+
+    content = b"".join(chunks)
     try:
         saved_info = save_upload(content, file.filename)
     except ValueError as e:
@@ -81,12 +109,12 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
                     parsed = normalize_currency(raw_val)
                     norm_val = str(parsed) if parsed is not None else raw_val
                     
-                bbox = find_bbox_for_text(raw_val, tokens)
+                bbox, field_conf = find_bbox_and_confidence(raw_val, tokens)
                 extracted_fields.append({
                     "field_type": field_type,
                     "raw_text": raw_val,
                     "normalized_value": norm_val,
-                    "confidence": 0.85, 
+                    "confidence": field_conf, 
                     "bbox_json": bbox
                 })
                 
@@ -109,9 +137,13 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
                 "validation_notes": f.get("validation_notes")
             })
             
+        overall_conf = round(sum(f["confidence"] for f in db_fields) / len(db_fields), 4) if db_fields else 0.50
         crud.insert_extractions(db, doc.id, db_fields)
-        crud.update_document_status(db, doc.id, "PROCESSED", confidence=0.85, has_error=has_error)
+        crud.update_document_status(db, doc.id, "PROCESSED", confidence=overall_conf, has_error=has_error)
         
+    except NotImplementedError as e:
+        crud.update_document_status(db, doc.id, "UNSUPPORTED")
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         crud.update_document_status(db, doc.id, "ERROR")
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
